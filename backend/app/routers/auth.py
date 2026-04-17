@@ -45,7 +45,7 @@ def seed_database(db: Session = Depends(get_db)):
     )
     return {"output": result.stdout, "errors": result.stderr}
 
-@router.post("/seed-db", include_in_schema=False)
+@router.post("/seed-db")
 def seed_database(db: Session = Depends(get_db)):
     from app import models
     from app.core.auth import hash_password
