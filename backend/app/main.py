@@ -7,7 +7,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Stockfolio API",
-    description="Stock Portfolio Tracker — DBMS Course Project",
+    description="Stock Portfolio Tracker ",
     version="1.0.0",
 )
 
