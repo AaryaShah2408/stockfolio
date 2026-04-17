@@ -34,3 +34,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.get("/me", response_model=schemas.UserOut)
 def me(current_user: models.User = Depends(__import__("app.core.auth", fromlist=["get_current_user"]).get_current_user)):
     return current_user
+
+@router.post("/seed-db", include_in_schema=False)
+def seed_database(db: Session = Depends(get_db)):
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "seed.py"],
+        capture_output=True, text=True
+    )
+    return {"output": result.stdout, "errors": result.stderr}
