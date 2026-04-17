@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Stockfolio — Portfolio Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+    --gold: #d29922; --purple: #bc8cff;
+    --card-radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* ── Auth Screen ── */
+  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .auth-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 2.5rem; width: 360px; }
+  .auth-logo { font-size: 1.5rem; font-weight: 700; color: var(--blue); letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+  .auth-logo span { color: var(--gold); }
+  .auth-subtitle { color: var(--muted); font-size: 13px; margin-bottom: 2rem; }
+  .auth-tabs { display: flex; gap: 4px; background: var(--bg3); border-radius: 8px; padding: 4px; margin-bottom: 1.5rem; }
+  .auth-tab { flex: 1; padding: 8px; border: none; background: none; color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .15s; }
+  .auth-tab.active { background: var(--bg2); color: var(--text); }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.3px; }
+  input[type=text], input[type=email], input[type=password] {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 12px; font-size: 14px; margin-bottom: 1rem;
+    outline: none; transition: border-color .15s;
+  }
+  input:focus { border-color: var(--blue); }
+  .btn-primary { width: 100%; background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  .btn-primary:hover { opacity: 0.88; }
+  .auth-hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 1rem; }
+  .auth-hint span { color: var(--blue); cursor: pointer; }
+  .error-msg { background: rgba(248,81,73,0.15); border: 1px solid var(--red); border-radius: 8px; color: var(--red); font-size: 13px; padding: 10px 12px; margin-bottom: 1rem; display: none; }
+
+  /* ── App Layout ── */
+  #app { display: none; }
+  .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
+  .sidebar-logo { padding: 1.25rem 1.25rem 0.75rem; font-size: 1.1rem; font-weight: 700; color: var(--blue); }
+  .sidebar-logo span { color: var(--gold); }
+  .sidebar-user { padding: 0.5rem 1.25rem 1rem; color: var(--muted); font-size: 12px; }
+  .nav-section { font-size: 11px; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 1rem 1.25rem 0.4rem; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 1.25rem; color: var(--muted); cursor: pointer; border-left: 2px solid transparent; transition: all .12s; font-size: 13px; }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .nav-item.active { color: var(--blue); border-left-color: var(--blue); background: rgba(88,166,255,0.08); }
+  .nav-icon { font-size: 15px; }
+  .sidebar-bottom { margin-top: auto; padding: 1rem 1.25rem; }
+  .btn-logout { width: 100%; background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); padding: 8px; cursor: pointer; font-size: 13px; transition: all .12s; }
+  .btn-logout:hover { color: var(--red); border-color: var(--red); }
+
+  .main { margin-left: 220px; padding: 1.5rem 2rem; min-height: 100vh; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+  .page-title { font-size: 1.3rem; font-weight: 700; }
+  .page-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  .kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 1.25rem; }
+  .kpi-label { font-size: 12px; color: var(--muted); margin-bottom: 0.4rem; letter-spacing: 0.3px; }
+  .kpi-value { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+  .kpi-sub { font-size: 12px; margin-top: 4px; }
+  .up { color: var(--green); } .down { color: var(--red); } .neutral { color: var(--muted); }
+
+  /* ── Charts ── */
+  .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 1.25rem; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .chart-title { font-size: 13px; font-weight: 600; }
+  .chart-controls { display: flex; gap: 4px; }
+  .period-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all .12s; }
+  .period-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+  canvas { max-height: 260px; }
+
+  /* ── Holdings Table ── */
+  .table-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--card-radius); overflow: hidden; margin-bottom: 1.5rem; }
+  .table-header { padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .table-title { font-size: 13px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; color: var(--muted); letter-spacing: 0.4px; text-transform: uppercase; padding: 10px 1.25rem; text-align: left; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  td { padding: 12px 1.25rem; border-bottom: 1px solid rgba(48,54,61,0.5); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .ticker-badge { font-weight: 700; font-size: 12px; background: rgba(88,166,255,0.12); color: var(--blue); padding: 3px 8px; border-radius: 5px; display: inline-block; }
+  .sector-tag { font-size: 11px; color: var(--muted); background: var(--bg3); padding: 2px 7px; border-radius: 4px; display: inline-block; }
+
+  /* ── Stocks Browser ── */
+  .search-bar { display: flex; gap: 10px; margin-bottom: 1rem; }
+  .search-input { flex: 1; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 9px 14px; font-size: 13px; outline: none; transition: border-color .15s; }
+  .search-input:focus { border-color: var(--blue); }
+  select { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 9px 12px; font-size: 13px; outline: none; cursor: pointer; }
+
+  /* ── Trade Panel ── */
+  .trade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  .trade-form-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 1.25rem; }
+  .trade-tabs { display: flex; gap: 4px; background: var(--bg3); border-radius: 8px; padding: 4px; margin-bottom: 1.25rem; }
+  .trade-tab { flex: 1; padding: 8px; border: none; background: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; }
+  .trade-tab.buy.active { background: var(--green); color: #0d1117; }
+  .trade-tab.sell.active { background: var(--red); color: #fff; }
+  .trade-tab:not(.active) { color: var(--muted); }
+  .trade-summary { background: var(--bg3); border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 13px; }
+  .trade-row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .btn-trade-buy { width: 100%; margin-top: 1rem; background: var(--green); color: #0d1117; border: none; border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn-trade-sell { width: 100%; margin-top: 1rem; background: var(--red); color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+  /* ── Watchlist ── */
+  .watchlist-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .watch-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 1rem; }
+  .watch-ticker { font-weight: 700; font-size: 15px; color: var(--blue); }
+  .watch-name { font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+  .watch-price { font-size: 1.3rem; font-weight: 700; }
+  .watch-target { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .watch-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; float: right; transition: color .12s; }
+  .watch-remove:hover { color: var(--red); }
+
+  /* ── Transactions ── */
+  .txn-badge-buy { background: rgba(63,185,80,0.15); color: var(--green); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .txn-badge-sell { background: rgba(248,81,73,0.15); color: var(--red); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+
+  /* ── Refresh indicator ── */
+  .refresh-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .refresh-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: 13px; transform: translateY(80px); opacity: 0; transition: all .3s; z-index: 9999; }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error { border-color: var(--red); color: var(--red); }
+
+  .loading { text-align: center; padding: 3rem; color: var(--muted); }
+  .portfolio-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; }
+  .btn-new-portfolio { background: none; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); padding: 7px 14px; cursor: pointer; font-size: 13px; transition: all .12s; }
+  .btn-new-portfolio:hover { border-color: var(--blue); color: var(--blue); }
+</style>
+</head>
+<body>
+
+<!-- ── AUTH SCREEN ─────────────────────────────────────── -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Stock<span>folio</span></div>
+    <div class="auth-subtitle">Portfolio tracker & analytics</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+    </div>
+    <div id="auth-error" class="error-msg"></div>
+
+    <div id="login-form">
+      <label>Username</label>
+      <input type="text" id="login-username" value="demo" placeholder="demo"/>
+      <label>Password</label>
+      <input type="password" id="login-password" value="demo1234" placeholder="••••••••"/>
+      <button class="btn-primary" onclick="doLogin()">Sign in</button>
+      <div class="auth-hint">Demo: <span onclick="fillDemo()">demo / demo1234</span></div>
+    </div>
+
+    <div id="register-form" style="display:none;">
+      <label>Username</label>
+      <input type="text" id="reg-username" placeholder="yourname"/>
+      <label>Email</label>
+      <input type="email" id="reg-email" placeholder="you@example.com"/>
+      <label>Password</label>
+      <input type="password" id="reg-password" placeholder="••••••••"/>
+      <button class="btn-primary" onclick="doRegister()">Create account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ─────────────────────────────────────────── -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">Stock<span>folio</span></div>
+    <div class="sidebar-user" id="sidebar-user"></div>
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">◈</span> Dashboard
+    </div>
+    <div class="nav-section">Trading</div>
+    <div class="nav-item" onclick="showPage('stocks')">
+      <span class="nav-icon">◎</span> Browse Stocks
+    </div>
+    <div class="nav-item" onclick="showPage('trade')">
+      <span class="nav-icon">⇅</span> Buy / Sell
+    </div>
+    <div class="nav-item" onclick="showPage('transactions')">
+      <span class="nav-icon">≡</span> Transactions
+    </div>
+    <div class="nav-section">Portfolio</div>
+    <div class="nav-item" onclick="showPage('watchlist')">
+      <span class="nav-icon">◆</span> Watchlist
+    </div>
+    <div class="sidebar-bottom">
+      <div class="refresh-indicator" style="margin-bottom:10px;">
+        <div class="refresh-dot"></div> Live — refreshes every 20s
+      </div>
+      <button class="btn-logout" onclick="logout()">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-subtitle">Portfolio overview & analytics</div>
+        </div>
+        <div class="portfolio-selector">
+          <select id="portfolio-select" onchange="loadDashboard()"></select>
+          <button class="btn-new-portfolio" onclick="createPortfolio()">+ New Portfolio</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Total Invested</div><div class="kpi-value" id="kpi-invested">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Current Value</div><div class="kpi-value" id="kpi-value">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Total P&L</div><div class="kpi-value" id="kpi-pnl">—</div><div class="kpi-sub" id="kpi-pnl-pct"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Cash Balance</div><div class="kpi-value" id="kpi-cash">—</div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">Stock Price History</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <select id="price-stock-select" onchange="loadPriceChart()" style="font-size:12px;padding:4px 8px;"></select>
+              <div class="chart-controls">
+                <button class="period-btn active" onclick="setPeriod(30,this)">1M</button>
+                <button class="period-btn" onclick="setPeriod(90,this)">3M</button>
+                <button class="period-btn" onclick="setPeriod(180,this)">6M</button>
+                <button class="period-btn" onclick="setPeriod(365,this)">1Y</button>
+              </div>
+            </div>
+          </div>
+          <canvas id="priceChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><div class="chart-title">Sector Allocation</div></div>
+          <canvas id="sectorChart"></canvas>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title">Holdings</div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Stock</th><th>Qty</th><th>Avg Buy</th><th>LTP</th><th>Invested</th><th>Value</th><th>P&L</th><th>P&L %</th>
+          </tr></thead>
+          <tbody id="holdings-body"><tr><td colspan="8" class="loading">Loading holdings…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:1.5rem;">
+        <div class="chart-header">
+          <div class="chart-title">Top Movers (30-day vs current)</div>
+        </div>
+        <canvas id="moversChart" style="max-height:200px;"></canvas>
+      </div>
+    </div>
+
+    <!-- STOCKS BROWSER -->
+    <div id="page-stocks" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Browse Stocks</div><div class="page-subtitle">Search and filter listed stocks</div></div>
+      </div>
+      <div class="search-bar">
+        <input class="search-input" id="stock-search" placeholder="Search ticker or company…" oninput="searchStocks()"/>
+        <select id="sector-filter" onchange="searchStocks()">
+          <option value="">All Sectors</option>
+        </select>
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Ticker</th><th>Company</th><th>Sector</th><th>Price</th><th>52W High</th><th>52W Low</th><th>PE Ratio</th><th>Action</th></tr></thead>
+          <tbody id="stocks-body"><tr><td colspan="8" class="loading">Loading stocks…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TRADE -->
+    <div id="page-trade" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Buy / Sell</div><div class="page-subtitle">Execute trades on your portfolio</div></div>
+        <select id="trade-portfolio-select"></select>
+      </div>
+      <div class="trade-grid">
+        <div class="trade-form-card">
+          <div class="trade-tabs">
+            <button class="trade-tab buy active" id="tab-buy" onclick="setTradeType('BUY')">Buy</button>
+            <button class="trade-tab sell" id="tab-sell" onclick="setTradeType('SELL')">Sell</button>
+          </div>
+          <label>Stock</label>
+          <select id="trade-stock" onchange="updateTradeSummary()" style="width:100%;margin-bottom:1rem;"></select>
+          <label>Quantity</label>
+          <input type="text" id="trade-qty" value="10" oninput="updateTradeSummary()" style="margin-bottom:0.5rem;"/>
+          <div class="trade-summary" id="trade-summary">
+            <div class="trade-row"><span style="color:var(--muted)">Stock Price</span><span id="ts-price">—</span></div>
+            <div class="trade-row"><span style="color:var(--muted)">Quantity</span><span id="ts-qty">—</span></div>
+            <div class="trade-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">
+              <span style="font-weight:600;">Total</span><span id="ts-total" style="font-weight:600;">—</span>
+            </div>
+          </div>
+          <button id="trade-btn" class="btn-trade-buy" onclick="executeTrade()">Buy Stock</button>
+        </div>
+        <div class="trade-form-card">
+          <div class="chart-header" style="margin-bottom:1rem;"><div class="chart-title">Price Chart</div></div>
+          <canvas id="tradeChart" style="max-height:300px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div id="page-transactions" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Transactions</div><div class="page-subtitle">Full trade history</div></div>
+        <select id="txn-portfolio-select" onchange="loadTransactions()"></select>
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Date</th><th>Ticker</th><th>Type</th><th>Qty</th><th>Price</th><th>Total</th><th>Notes</th><th>Action</th></tr></thead>
+          <tbody id="txn-body"><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WATCHLIST -->
+    <div id="page-watchlist" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Watchlist</div><div class="page-subtitle">Stocks you're tracking</div></div>
+        <div style="display:flex;gap:8px;">
+          <select id="watch-add-stock" style="width:200px;"></select>
+          <button class="btn-primary" style="width:auto;padding:8px 16px;" onclick="addToWatchlist()">+ Watch</button>
+        </div>
+      </div>
+      <div class="watchlist-grid" id="watchlist-grid"><div class="loading">Loading watchlist…</div></div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:8000';
+let token = localStorage.getItem('sf_token');
+let currentUser = null;
+let portfolios = [];
+let allStocks = [];
+let priceChart = null, sectorChart = null, moversChart = null, tradeChart = null;
+let currentPeriod = 30;
+let currentTradeType = 'BUY';
+let refreshTimer = null;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const fmt = n => n == null ? '—' : '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:2});
+const fmtNum = n => Number(n).toLocaleString('en-IN', {maximumFractionDigits:2});
+const fmtDate = d => new Date(d).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'});
+
+async function api(path, opts={}) {
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API + path, {...opts, headers});
+  if (res.status === 401) { logout(); return null; }
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.detail || 'Request failed');
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  setTimeout(()=>t.className='', 3000);
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')));
+  document.getElementById('login-form').style.display = tab==='login'?'block':'none';
+  document.getElementById('register-form').style.display = tab==='register'?'block':'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function fillDemo() {
+  document.getElementById('login-username').value = 'demo';
+  document.getElementById('login-password').value = 'demo1234';
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const form = new URLSearchParams({username, password});
+    const res = await fetch(API + '/auth/login', {method:'POST', body:form});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Login failed');
+    token = data.access_token;
+    localStorage.setItem('sf_token', token);
+    await initApp();
+  } catch(e) {
+    const el = document.getElementById('auth-error');
+    el.textContent = e.message; el.style.display = 'block';
+  }
+}
+
+async function doRegister() {
+  try {
+    await api('/auth/register', {method:'POST', body: JSON.stringify({
+      username: document.getElementById('reg-username').value,
+      email: document.getElementById('reg-email').value,
+      password: document.getElementById('reg-password').value,
+    })});
+    showToast('Account created! Please log in.', 'success');
+    switchAuthTab('login');
+  } catch(e) {
+    const el = document.getElementById('auth-error');
+    el.textContent = e.message; el.style.display = 'block';
+  }
+}
+
+function logout() {
+  token = null; localStorage.removeItem('sf_token');
+  clearInterval(refreshTimer);
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function initApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  currentUser = await api('/auth/me');
+  document.getElementById('sidebar-user').textContent = '@' + currentUser.username;
+  await loadPortfolios();
+  await loadAllStocks();
+  await loadSectors();
+  await loadDashboard();
+  refreshTimer = setInterval(loadDashboard, 20000);
+}
+
+async function loadPortfolios() {
+  portfolios = await api('/portfolios/') || [];
+  ['portfolio-select','trade-portfolio-select','txn-portfolio-select'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = portfolios.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  });
+}
+
+async function loadAllStocks() {
+  allStocks = await api('/stocks/?limit=100') || [];
+  ['trade-stock','watch-add-stock'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = allStocks.map(s=>`<option value="${s.id}">${s.ticker} — ${s.company_name}</option>`).join('');
+  });
+  const priceSelect = document.getElementById('price-stock-select');
+  if (priceSelect) priceSelect.innerHTML = allStocks.map(s=>`<option value="${s.id}">${s.ticker}</option>`).join('');
+  updateTradeSummary();
+}
+
+async function loadSectors() {
+  const sectors = await api('/stocks/sectors') || [];
+  const sel = document.getElementById('sector-filter');
+  sectors.forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  const sel = document.getElementById('portfolio-select');
+  if (!sel || !sel.value) return;
+  const pid = sel.value;
+
+  try {
+    const [summary, sectors, movers] = await Promise.all([
+      api(`/dashboard/portfolio-summary/${pid}`),
+      api(`/dashboard/sector-allocation/${pid}`),
+      api('/dashboard/top-movers?limit=8'),
+    ]);
+    if (!summary) return;
+
+    // KPIs
+    document.getElementById('kpi-invested').textContent = fmt(summary.total_invested);
+    document.getElementById('kpi-value').textContent = fmt(summary.current_value);
+    const pnlEl = document.getElementById('kpi-pnl');
+    pnlEl.textContent = fmt(summary.total_pnl);
+    pnlEl.className = 'kpi-value ' + (summary.total_pnl >= 0 ? 'up' : 'down');
+    const pct = document.getElementById('kpi-pnl-pct');
+    pct.textContent = (summary.total_pnl_pct >= 0 ? '▲ ' : '▼ ') + Math.abs(summary.total_pnl_pct).toFixed(2) + '%';
+    pct.className = 'kpi-sub ' + (summary.total_pnl >= 0 ? 'up' : 'down');
+    document.getElementById('kpi-cash').textContent = fmt(summary.cash_balance);
+
+    // Holdings table
+    const tbody = document.getElementById('holdings-body');
+    if (!summary.holdings.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="loading">No holdings yet — go buy some stocks!</td></tr>';
+    } else {
+      tbody.innerHTML = summary.holdings.map(h => `
+        <tr>
+          <td><span class="ticker-badge">${h.ticker}</span> <small style="color:var(--muted);margin-left:6px;">${h.company_name}</small></td>
+          <td>${h.quantity}</td>
+          <td>${fmt(h.avg_buy_price)}</td>
+          <td>${fmt(h.current_price)}</td>
+          <td>${fmt(h.total_invested)}</td>
+          <td>${fmt(h.current_value)}</td>
+          <td class="${h.pnl>=0?'up':'down'}">${h.pnl>=0?'+':''}${fmt(h.pnl)}</td>
+          <td class="${h.pnl_pct>=0?'up':'down'}">${h.pnl_pct>=0?'▲':'▼'} ${Math.abs(h.pnl_pct).toFixed(2)}%</td>
+        </tr>`).join('');
+    }
+
+    // Sector chart
+    renderSectorChart(sectors);
+
+    // Top movers bar chart
+    renderMoversChart(movers);
+
+    // Price chart
+    await loadPriceChart();
+
+  } catch(e) { console.error(e); }
+}
+
+async function loadPriceChart() {
+  const stockId = document.getElementById('price-stock-select').value;
+  if (!stockId) return;
+  const history = await api(`/stocks/${stockId}/history?days=${currentPeriod}`) || [];
+  const labels = history.map(h => {
+    const d = new Date(h.date);
+    return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+  });
+  const prices = history.map(h => h.close_price);
+
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  if (priceChart) priceChart.destroy();
+  const up = prices.length > 1 && prices[prices.length-1] >= prices[0];
+  const color = up ? '#3fb950' : '#f85149';
+  priceChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{
+      data: prices, borderColor: color, borderWidth: 2, pointRadius: 0,
+      fill: true,
+      backgroundColor: (ctx) => {
+        const g = ctx.chart.ctx.createLinearGradient(0,0,0,220);
+        g.addColorStop(0, color + '33'); g.addColorStop(1, color + '00');
+        return g;
+      },
+      tension: 0.4
+    }]},
+    options: {
+      responsive: true, plugins: {legend:{display:false}, tooltip:{
+        callbacks:{label: c => '₹' + fmtNum(c.raw)}
+      }},
+      scales: {
+        x: {ticks:{color:'#8b949e',maxTicksLimit:8,font:{size:11}}, grid:{color:'rgba(48,54,61,0.6)'}},
+        y: {ticks:{color:'#8b949e',callback:v=>'₹'+fmtNum(v),font:{size:11}}, grid:{color:'rgba(48,54,61,0.6)'}}
+      }
+    }
+  });
+}
+
+function renderSectorChart(sectors) {
+  const ctx = document.getElementById('sectorChart').getContext('2d');
+  if (sectorChart) sectorChart.destroy();
+  const colors = ['#58a6ff','#3fb950','#d29922','#bc8cff','#f85149','#39d353','#ff7b72','#ffa657'];
+  sectorChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: sectors.map(s=>s.sector),
+      datasets: [{
+        data: sectors.map(s=>s.value),
+        backgroundColor: colors.slice(0, sectors.length),
+        borderColor: '#21262d', borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, cutout: '65%',
+      plugins: {
+        legend: {position:'bottom', labels:{color:'#8b949e',font:{size:11},padding:12}},
+        tooltip: {callbacks:{label: c => c.label + ': ' + c.dataset.data[c.dataIndex].toFixed(0) + '% share'}}
+      }
+    }
+  });
+}
+
+function renderMoversChart(movers) {
+  const ctx = document.getElementById('moversChart').getContext('2d');
+  if (moversChart) moversChart.destroy();
+  moversChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: movers.map(s=>s.ticker),
+      datasets: [{
+        label: 'Current Price (₹)',
+        data: movers.map(s=>s.current_price),
+        backgroundColor: movers.map((_,i)=> i%2===0?'#58a6ff99':'#bc8cff99'),
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, indexAxis: 'y',
+      plugins: {legend:{display:false}, tooltip:{callbacks:{label:c=>'₹'+fmtNum(c.raw)}}},
+      scales: {
+        x: {ticks:{color:'#8b949e',callback:v=>'₹'+fmtNum(v),font:{size:11}}, grid:{color:'rgba(48,54,61,0.6)'}},
+        y: {ticks:{color:'#e6edf3',font:{size:12,weight:'600'}}, grid:{display:false}}
+      }
+    }
+  });
+}
+
+function setPeriod(days, btn) {
+  currentPeriod = days;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadPriceChart();
+}
+
+// ── Stocks Browser ─────────────────────────────────────────────────────────
+async function searchStocks() {
+  const search = document.getElementById('stock-search').value;
+  const sector = document.getElementById('sector-filter').value;
+  let url = '/stocks/?limit=100';
+  if (search) url += '&search=' + encodeURIComponent(search);
+  if (sector) url += '&sector=' + encodeURIComponent(sector);
+  const stocks = await api(url) || [];
+  const tbody = document.getElementById('stocks-body');
+  if (!stocks.length) { tbody.innerHTML='<tr><td colspan="8" class="loading">No stocks found</td></tr>'; return; }
+  tbody.innerHTML = stocks.map(s=>`
+    <tr>
+      <td><span class="ticker-badge">${s.ticker}</span></td>
+      <td>${s.company_name}</td>
+      <td><span class="sector-tag">${s.sector}</span></td>
+      <td style="font-weight:600;">${fmt(s.current_price)}</td>
+      <td class="up">${fmt(s.week_52_high)}</td>
+      <td class="down">${fmt(s.week_52_low)}</td>
+      <td>${s.pe_ratio ? s.pe_ratio.toFixed(1) : '—'}</td>
+      <td>
+        <button onclick="quickTrade(${s.id},'BUY')" style="background:rgba(63,185,80,0.15);color:var(--green);border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:600;">Buy</button>
+        <button onclick="quickTrade(${s.id},'SELL')" style="background:rgba(248,81,73,0.15);color:var(--red);border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:600;margin-left:4px;">Sell</button>
+      </td>
+    </tr>`).join('');
+}
+
+function quickTrade(stockId, type) {
+  setTradeType(type);
+  const sel = document.getElementById('trade-stock');
+  if (sel) sel.value = stockId;
+  updateTradeSummary();
+  showPage('trade');
+}
+
+// ── Trade ──────────────────────────────────────────────────────────────────
+function setTradeType(type) {
+  currentTradeType = type;
+  document.getElementById('tab-buy').classList.toggle('active', type==='BUY');
+  document.getElementById('tab-sell').classList.toggle('active', type==='SELL');
+  const btn = document.getElementById('trade-btn');
+  btn.className = type==='BUY' ? 'btn-trade-buy' : 'btn-trade-sell';
+  btn.textContent = type==='BUY' ? 'Buy Stock' : 'Sell Stock';
+  updateTradeSummary();
+}
+
+async function updateTradeSummary() {
+  const stockId = document.getElementById('trade-stock')?.value;
+  const qty = parseInt(document.getElementById('trade-qty')?.value) || 0;
+  const stock = allStocks.find(s=>String(s.id)===String(stockId));
+  if (!stock) return;
+  const total = stock.current_price * qty;
+  document.getElementById('ts-price').textContent = fmt(stock.current_price);
+  document.getElementById('ts-qty').textContent = qty;
+  document.getElementById('ts-total').textContent = fmt(total);
+
+  // Trade price chart
+  const history = await api(`/stocks/${stockId}/history?days=30`) || [];
+  const ctx = document.getElementById('tradeChart').getContext('2d');
+  if (tradeChart) tradeChart.destroy();
+  tradeChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: history.map(h=>new Date(h.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})),
+      datasets: [{data: history.map(h=>h.close_price), borderColor:'#58a6ff', borderWidth:2, pointRadius:0, tension:0.4, fill:false}]
+    },
+    options: {
+      responsive:true, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>'₹'+fmtNum(c.raw)}}},
+      scales:{
+        x:{ticks:{color:'#8b949e',maxTicksLimit:6,font:{size:11}},grid:{color:'rgba(48,54,61,0.6)'}},
+        y:{ticks:{color:'#8b949e',callback:v=>'₹'+fmtNum(v),font:{size:11}},grid:{color:'rgba(48,54,61,0.6)'}}
+      }
+    }
+  });
+}
+
+async function executeTrade() {
+  const portfolioId = document.getElementById('trade-portfolio-select').value;
+  const stockId = document.getElementById('trade-stock').value;
+  const qty = parseInt(document.getElementById('trade-qty').value);
+  if (!portfolioId || !stockId || !qty) { showToast('Fill all fields', 'error'); return; }
+  try {
+    await api(`/portfolios/${portfolioId}/transactions/`, {
+      method: 'POST',
+      body: JSON.stringify({stock_id: parseInt(stockId), transaction_type: currentTradeType, quantity: qty})
+    });
+    showToast(`${currentTradeType} order placed for ${qty} shares!`, 'success');
+    await loadDashboard();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ── Transactions ───────────────────────────────────────────────────────────
+async function loadTransactions() {
+  const pid = document.getElementById('txn-portfolio-select').value;
+  if (!pid) return;
+  const txns = await api(`/portfolios/${pid}/transactions/`) || [];
+  const tbody = document.getElementById('txn-body');
+  if (!txns.length) { tbody.innerHTML='<tr><td colspan="8" class="loading">No transactions yet</td></tr>'; return; }
+  const stockMap = Object.fromEntries(allStocks.map(s=>[s.id,s]));
+  tbody.innerHTML = txns.map(t=>`
+    <tr>
+      <td>${fmtDate(t.transaction_date)}</td>
+      <td><span class="ticker-badge">${stockMap[t.stock_id]?.ticker||t.stock_id}</span></td>
+      <td><span class="txn-badge-${t.transaction_type.toLowerCase()}">${t.transaction_type}</span></td>
+      <td>${t.quantity}</td>
+      <td>${fmt(t.price_per_share)}</td>
+      <td style="font-weight:600;">${fmt(t.total_amount)}</td>
+      <td style="color:var(--muted);font-size:12px;">${t.notes||'—'}</td>
+      <td><button onclick="deleteTransaction(${pid},${t.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">✕</button></td>
+    </tr>`).join('');
+}
+
+async function deleteTransaction(pid, tid) {
+  if (!confirm('Delete this transaction? Cash will be reversed.')) return;
+  try {
+    await api(`/portfolios/${pid}/transactions/${tid}`, {method:'DELETE'});
+    showToast('Transaction deleted', 'success');
+    loadTransactions(); loadDashboard();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ── Watchlist ──────────────────────────────────────────────────────────────
+async function loadWatchlist() {
+  const items = await api('/watchlist/') || [];
+  const grid = document.getElementById('watchlist-grid');
+  if (!items.length) { grid.innerHTML='<div class="loading">Nothing in watchlist yet. Add stocks above.</div>'; return; }
+  grid.innerHTML = items.map(item => {
+    const s = item.stock;
+    const atTarget = item.target_price && s.current_price >= item.target_price;
+    return `<div class="watch-card" style="${atTarget?'border-color:var(--green);':''}">
+      <button class="watch-remove" onclick="removeWatch(${item.id})">✕</button>
+      <div class="watch-ticker">${s.ticker}</div>
+      <div class="watch-name">${s.company_name}</div>
+      <div class="watch-price">${fmt(s.current_price)}</div>
+      <div class="watch-target">${item.target_price ? 'Target: '+fmt(item.target_price) + (atTarget?' ✓ Reached!':'') : 'No target set'}</div>
+      <span class="sector-tag" style="margin-top:8px;display:inline-block;">${s.sector}</span>
+    </div>`;
+  }).join('');
+}
+
+async function addToWatchlist() {
+  const stockId = document.getElementById('watch-add-stock').value;
+  if (!stockId) return;
+  try {
+    await api('/watchlist/', {method:'POST', body: JSON.stringify({stock_id:parseInt(stockId)})});
+    showToast('Added to watchlist', 'success');
+    loadWatchlist();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function removeWatch(id) {
+  await api('/watchlist/'+id, {method:'DELETE'});
+  showToast('Removed from watchlist', 'success');
+  loadWatchlist();
+}
+
+// ── Portfolio ──────────────────────────────────────────────────────────────
+async function createPortfolio() {
+  const name = prompt('Portfolio name:');
+  if (!name) return;
+  try {
+    await api('/portfolios/', {method:'POST', body:JSON.stringify({name, cash_balance:100000})});
+    showToast('Portfolio created!', 'success');
+    await loadPortfolios(); loadDashboard();
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  event?.currentTarget?.classList.add('active');
+  if (name==='stocks') searchStocks();
+  if (name==='transactions') loadTransactions();
+  if (name==='watchlist') loadWatchlist();
+  if (name==='trade') updateTradeSummary();
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+if (token) {
+  initApp().catch(()=>{ token=null; localStorage.removeItem('sf_token'); });
+}
+</script>
+</body>
+</html>
